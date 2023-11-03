@@ -11,8 +11,11 @@ app = FastAPI()
 # Get the absolute path of the current file
 current_dir = os.path.dirname(os.path.abspath(__file__))
 print(current_dir)
+
+mixed_path = os.path.join(current_dir, '../my_model_version1')
+
 # Construct the absolute path to the model directory
-mixed_path = os.path.join(current_dir, '../../plant_disease_detection_backend/my_model_version1')
+
 normalized_path = os.path.normpath(mixed_path)
 
 normalized_path = normalized_path.replace("\\", "/")

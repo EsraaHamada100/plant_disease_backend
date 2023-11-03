@@ -21,6 +21,7 @@ normalized_path = os.path.normpath(mixed_path)
 normalized_path = normalized_path.replace("\\", "/")
 print(normalized_path)
 # Load the model
+options = tf.saved_model.LoadOptions(experimental_io_device='/job:localhost')
 MODEL = tf.keras.models.load_model(normalized_path)
 
 # # the old solution

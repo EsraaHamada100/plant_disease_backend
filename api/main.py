@@ -3,11 +3,26 @@ import uvicorn
 import numpy as np
 from io import BytesIO
 from PIL import Image
+import os
 import tensorflow as tf
 
 app = FastAPI()
 
-MODEL = tf.keras.models.load_model("../my_model_version1")
+# Get the absolute path of the current file
+current_dir = os.path.dirname(os.path.abspath(__file__))
+print(current_dir)
+# Construct the absolute path to the model directory
+mixed_path = os.path.join(current_dir, '../../plant_disease_detection_backend/my_model_version1')
+normalized_path = os.path.normpath(mixed_path)
+
+normalized_path = normalized_path.replace("\\", "/")
+print(normalized_path)
+# Load the model
+MODEL = tf.keras.models.load_model(normalized_path)
+
+# # the old solution
+# MODEL = tf.keras.models.load_model("../my_model_version1")
+
 CLASS_NAMES = ["Early Blight", "Late Blight", "Healthy"]
 
 

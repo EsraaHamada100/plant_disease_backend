@@ -5,7 +5,8 @@ from io import BytesIO
 from PIL import Image
 import os
 import tensorflow as tf
-
+from rembg import remove
+from starlette.responses import StreamingResponse
 app = FastAPI()
 
 input_shape = (256, 256, 3)
@@ -13,7 +14,7 @@ input_shape = (256, 256, 3)
 
 MODELS_DATA = {
     'apple': {
-        'path': '../apple_model_version1',
+        'path': '../apple_model_version2',
         'class_names': ["Black Rot", "Cedar Rust", "Scab", "Healthy"],
     },
     'potato': {
@@ -48,6 +49,10 @@ MODELS_DATA = {
         'path': '../corn_model_version1',
         'class_names': ["Blight", "Common Rust", "Gray Leaf Spot", "Healthy"],
     },
+    'wheat': {
+        'path': '../wheat_model_version1',
+        'class_names': ["Brown rust", "Healthy", "Yellow rust"],
+    },
     'tomato': {
         'path': '../tomato_model_version1',
         'class_names': [
@@ -72,9 +77,11 @@ async def ping():
     return "Hello, I am alive. yeah"
 
 
-def read_file_as_image(data, target_size=(256, 256)) -> np.ndarray:
+def read_file_as_image(data, target_size=(256, 256)) -> np.ndarray: # Image.image
     image = Image.open(BytesIO(data)).resize(target_size)
-    return np.array(image)
+    image = remove(image) # remove the image background
+    image = image.convert('RGB')
+    return np.array(image) # image
 
 
 def process_file_path(path: str) -> str:
@@ -125,12 +132,19 @@ async def predict(
     confidence = np.max(predictions[0])
     print(predictions[0])
 
+
     return {
         'plant_name': name,
         'class': predicted_class,
         'confidence': float(confidence)
     }
 
+
+    # # return the image
+    # buffered = BytesIO()
+    # image.save(buffered, format="PNG")
+    # buffered.seek(0)
+    # return StreamingResponse(buffered, media_type="image/png")
 
 if __name__ == "__main__":
     uvicorn.run(app, host='localhost', port=8000)

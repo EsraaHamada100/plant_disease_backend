@@ -7,54 +7,55 @@ import os
 import tensorflow as tf
 from rembg import remove
 from starlette.responses import StreamingResponse
+import cv2
 app = FastAPI()
 
-input_shape = (256, 256, 3)
+input_shape = (227, 227, 3)
 # Load the model
 
 MODELS_DATA = {
     'apple': {
-        'path': '../apple_model_version2',
-        'class_names': ["Black Rot", "Cedar Rust", "Scab", "Healthy"],
+        'path': '../models/apple_model_alexnet_without_augmentation2',
+        'class_names': ["Scab", "Black Rot", "Cedar Rust", "Healthy"],
     },
     'potato': {
-        'path': '../potato_model_version`',
+        'path': '../models/potato_model_version`',
         'class_names': ["Early Blight", "Late Blight", "Healthy"],
     },
     'strawberry': {
-        'path': '../strawberry_model_version1',
+        'path': '../models/strawberry_model_version1',
         'class_names': ["Leaf scorch", "Healthy"],
     },
     'cotton': {
-        'path': '../cotton_model_version1',
+        'path': '../models/cotton_model_version1',
         'class_names': ["Diseased plant", "Healthy plant"],
     },
     'cherry': {
-        'path': '../cherry_model_version1',
+        'path': '../models/cherry_model_version1',
         'class_names': ["Powdery mildew", "Healthy"],
     },
     'peach': {
-        'path': '../peach_model_version1',
+        'path': '../models/peach_model_version1',
         'class_names': ["Healthy","Bacterial spot"],
     },
     'grape': {
-        'path': '../grape_model_version1',
+        'path': '../models/grape_model_version1',
         'class_names': ["Leaf_blight (Isariopsis Leaf Spot)", "Healthy", "Esca (Black Measles)", "Black rot"],
     },
     'pepper': {
-        'path': '../pepper_model_version1',
+        'path': '../models/pepper_model_version1',
         'class_names': ["Bacterial spot", "Healthy"],
     },
     'corn': {
-        'path': '../corn_model_version1',
+        'path': '../models/corn_model_version1',
         'class_names': ["Blight", "Common Rust", "Gray Leaf Spot", "Healthy"],
     },
     'wheat': {
-        'path': '../wheat_model_version1',
+        'path': '../models/wheat_model_version1',
         'class_names': ["Brown rust", "Healthy", "Yellow rust"],
     },
     'tomato': {
-        'path': '../tomato_model_version1',
+        'path': '../models/tomato_model_version1',
         'class_names': [
             "Bacterial spot",
             "Early blight",
@@ -77,11 +78,14 @@ async def ping():
     return "Hello, I am alive. yeah"
 
 
-def read_file_as_image(data, target_size=(256, 256)) -> np.ndarray: # Image.image
+def read_file_as_image(data, target_size=(227, 227)) :#-> np.ndarray: # Image.image
     image = Image.open(BytesIO(data)).resize(target_size)
     image = remove(image) # remove the image background
     image = image.convert('RGB')
-    return np.array(image) # image
+    image = segment_image(image)
+
+    print(image)
+    return image#np.array(image) # image
 
 
 def process_file_path(path: str) -> str:
@@ -101,7 +105,7 @@ def process_file_path(path: str) -> str:
 
 
 def get_model(normalized_path: str):
-    model = tf.keras.models.load_model(normalized_path)
+    model = tf.keras.saving.load_model(normalized_path)
     return model
 
 
@@ -110,6 +114,47 @@ def get_model_and_class_names(name: str):
     model = get_model(normalized_path)
     class_names = MODELS_DATA[name]['class_names']
     return model, class_names
+
+
+def segment_image(image):
+    # Convert PIL image to numpy
+    image_np = np.array(image)
+    # print(image)
+    # Convert to BGR (OpenCV uses BGR by default)
+    image_bgr = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
+    
+    # Convert to HSV color space
+    hsv = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2HSV)
+
+    # Define color ranges for the spots (excluding green and including rgba(42, 60, 24, 255))
+    lower_spots1 = np.array([5, 50, 50])  # Lower HSV values for spots, excluding green
+    upper_spots1 = np.array([25, 255, 255])  # Upper HSV values for spots, excluding green
+    mask_spots1 = cv2.inRange(hsv, lower_spots1, upper_spots1)
+
+    # Define additional mask for very dark colors (low value) for spot2
+    lower_spots_dark = np.array([0, 0, 0])  # Lower HSV values for very dark colors
+    upper_spots_dark = np.array([180, 255, 50])  # Upper HSV values for very dark colors
+    mask_spots_dark = cv2.inRange(hsv, lower_spots_dark, upper_spots_dark)
+
+
+    lower_dark_green = np.array([30, 100, 0])
+    upper_dark_green = np.array([47, 255, 100])
+    mask_dark_green = cv2.inRange(hsv, lower_dark_green, upper_dark_green)
+
+    # Combine the masks for all spots
+    mask_spots_combined = cv2.bitwise_or(mask_spots1, mask_spots_dark)
+    mask_spots_combined = cv2.bitwise_or(mask_spots_combined, mask_dark_green)
+
+    # Apply the combined mask to get the segmented image (spots only)
+    result = cv2.bitwise_and(image_bgr, image_bgr, mask=mask_spots_combined)
+
+    # Convert masked image back to RGB for visualization
+    result_rgb = cv2.cvtColor(result, cv2.COLOR_BGR2RGB)
+    
+    # Convert number array to PIL image
+    result_rgb_PIL = Image.fromarray(result_rgb)
+
+    return result_rgb_PIL
 
 
 @app.post('/predict')
@@ -127,24 +172,24 @@ async def predict(
     elif name not in MODELS_DATA:
         return {'error': 'We don\'t have this plant , go somewhere else'}
     model, class_names = get_model_and_class_names(name)
-    predictions = model.predict(img_batch)  # because he treated it as a batch of image not only one image
+    predictions = model(img_batch)  # because he treated it as a batch of image not only one image
     predicted_class = class_names[np.argmax(predictions[0])]
     confidence = np.max(predictions[0])
     print(predictions[0])
 
 
-    return {
-        'plant_name': name,
-        'class': predicted_class,
-        'confidence': float(confidence)
-    }
+    # return {
+    #     'plant_name': name,
+    #     'class': predicted_class,
+    #     'confidence': float(confidence)
+    # }
 
 
     # # return the image
-    # buffered = BytesIO()
-    # image.save(buffered, format="PNG")
-    # buffered.seek(0)
-    # return StreamingResponse(buffered, media_type="image/png")
+    buffered = BytesIO()
+    image.save(buffered, format="PNG")
+    buffered.seek(0)
+    return StreamingResponse(buffered, media_type="image/png")
 
 if __name__ == "__main__":
     uvicorn.run(app, host='localhost', port=8000)

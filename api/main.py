@@ -15,7 +15,7 @@ input_shape = (227, 227, 3)
 
 MODELS_DATA = {
     'apple': {
-        'path': '../models/apple_model_alexnet_without_augmentation2',
+        'path': '../models/apple_model_attention_mechanism_with_spot_segmentation4',
         'class_names': ["Scab", "Black Rot", "Cedar Rust", "Healthy"],
     },
     'potato': {
@@ -78,10 +78,11 @@ async def ping():
     return "Hello, I am alive. yeah"
 
 
-def read_file_as_image(data, target_size=(227, 227)) :#-> np.ndarray: # Image.image
+def read_file_as_image(data, target_size=(256, 256)) :#-> np.ndarray: # Image.image
     image = Image.open(BytesIO(data)).resize(target_size)
     image = remove(image) # remove the image background
     image = image.convert('RGB')
+    if()
     image = segment_image(image)
 
     print(image)
@@ -178,18 +179,18 @@ async def predict(
     print(predictions[0])
 
 
-    # return {
-    #     'plant_name': name,
-    #     'class': predicted_class,
-    #     'confidence': float(confidence)
-    # }
+    return {
+        'plant_name': name,
+        'class': predicted_class,
+        'confidence': float(confidence)
+    }
 
 
     # # return the image
-    buffered = BytesIO()
-    image.save(buffered, format="PNG")
-    buffered.seek(0)
-    return StreamingResponse(buffered, media_type="image/png")
+    # buffered = BytesIO()
+    # image.save(buffered, format="PNG")
+    # buffered.seek(0)
+    # return StreamingResponse(buffered, media_type="image/png")
 
 if __name__ == "__main__":
     uvicorn.run(app, host='localhost', port=8000)

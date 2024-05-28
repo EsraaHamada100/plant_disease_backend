@@ -39,8 +39,8 @@ MODELS_DATA = {
         'class_names': ["Healthy","Bacterial spot"],
     },
     'grape': {
-        'path': '../models/grape_model_version1',
-        'class_names': ["Leaf_blight (Isariopsis Leaf Spot)", "Healthy", "Esca (Black Measles)", "Black rot"],
+        'path': '../models/Grape_model_version_EfficientNet',
+        'class_names': [ "Black rot", "Esca (Black Measles)","Healthy", "Leaf_blight (Isariopsis Leaf Spot)"],
     },
     'pepper': {
         'path': '../models/pepper_model_version1',
@@ -55,7 +55,7 @@ MODELS_DATA = {
         'class_names': ["Brown rust", "Healthy", "Yellow rust"],
     },
     'tomato': {
-        'path': '../models/tomato_model_version1',
+        'path': '../models/tomato_model_version2_image_size_224',
         'class_names': [
             "Bacterial spot",
             "Early blight",
@@ -78,12 +78,21 @@ async def ping():
     return "Hello, I am alive. yeah"
 
 
-def read_file_as_image(data, target_size=(256, 256)) :#-> np.ndarray: # Image.image
+def read_file_as_image(data, plant_name, target_size=(256, 256)) :#-> np.ndarray: # Image.image
+    if(plant_name == "tomato"):
+        target_size=(224, 224)
+
+    if(plant_name == 'grape'):
+        target_size=(224, 224)
+
     image = Image.open(BytesIO(data)).resize(target_size)
-    image = remove(image) # remove the image background
+
+    if(plant_name != 'corn'):
+        image = remove(image) # remove the image background
+    
+    
     image = image.convert('RGB')
-    if()
-    image = segment_image(image)
+    # image = segment_image(image)
 
     print(image)
     return image#np.array(image) # image
@@ -156,7 +165,10 @@ def segment_image(image):
     result_rgb_PIL = Image.fromarray(result_rgb)
 
     return result_rgb_PIL
-
+# I made this to get the real probability in the grape class    
+def softmax(x):
+    exp_x = np.exp(x - np.max(x)) 
+    return exp_x / np.sum(exp_x)  
 
 @app.post('/predict')
 async def predict(
@@ -164,7 +176,7 @@ async def predict(
         file: UploadFile = File(...),
         name: str = None
 ):
-    image = read_file_as_image(await file.read())
+    image = read_file_as_image(await file.read(), name)
     # convert image from something like this [232,543,32] to this [[232,543,32]]
     # because predict function should be given a list of images not only one image
     img_batch = np.expand_dims(image, 0)
@@ -174,8 +186,15 @@ async def predict(
         return {'error': 'We don\'t have this plant , go somewhere else'}
     model, class_names = get_model_and_class_names(name)
     predictions = model(img_batch)  # because he treated it as a batch of image not only one image
+
     predicted_class = class_names[np.argmax(predictions[0])]
-    confidence = np.max(predictions[0])
+    if name == 'grape':
+        print(np.max(predictions[0]))
+        confidence_array = softmax(predictions[0])
+        confidence = np.max(confidence_array)
+        print(confidence)
+    else :
+        confidence = np.max(predictions[0])
     print(predictions[0])
 
 

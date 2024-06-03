@@ -15,7 +15,7 @@ input_shape = (227, 227, 3)
 
 MODELS_DATA = {
     'apple': {
-        'path': '../models/apple_model_attention_mechanism_with_spot_segmentation4',
+        'path': '../models/apple_model_version_333',
         'class_names': ["Scab", "Black Rot", "Cedar Rust", "Healthy"],
     },
     'potato': {
@@ -48,7 +48,7 @@ MODELS_DATA = {
     },
     'corn': {
         'path': '../models/corn_model_version1',
-        'class_names': ["Blight", "Common Rust", "Gray Leaf Spot", "Healthy"],
+        'class_names': ["Blight", "Common Rust", "Healthy"],
     },
     'wheat': {
         'path': '../models/wheat_model_version1',
